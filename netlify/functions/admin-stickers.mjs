@@ -14,7 +14,7 @@ export default handler(async req => {
   const sql = db();
   const rows = await sql`
     select id, title, description, author, lat, lng,
-           photo_key, thumb_key, photo_url, taken_on, place, country, tags,
+           photo_key, thumb_key, photo_url, taken_on, place, country, country_code, tags,
            status, created_at
       from stickers
      order by (status = 'pending') desc, created_at desc

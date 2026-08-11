@@ -4,24 +4,14 @@ import { db, ensureSchema, HttpError } from '../lib/db.mjs';
 import { handler, json, requireMethod, readJson, clientIp } from '../lib/http.mjs';
 import { hashIp } from '../lib/auth.mjs';
 import { decodeDataUrl, savePhoto, deletePhotos } from '../lib/photos.mjs';
+import { stickerFields, slug } from '../lib/validate.mjs';
+import { notifyNewSticker } from '../lib/notify.mjs';
 
 export const config = { path: '/api/submit' };
 
 const MAX_PHOTO = 3 * 1024 * 1024;      // 3 MB, il browser ridimensiona a 1600px
 const MAX_THUMB = 400 * 1024;
 const MAX_PER_HOUR = 5;
-
-function text(value, { max, min = 0, label }) {
-  const s = String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
-  if (s.length < min) throw new HttpError(400, label + ': serve almeno ' + min + ' caratteri');
-  return s.slice(0, max);
-}
-
-function slug(s) {
-  return String(s || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-}
 
 export default handler(async (req, context) => {
   requireMethod(req, 'POST');
@@ -30,23 +20,7 @@ export default handler(async (req, context) => {
   const body = await readJson(req);
   const sql = db();
 
-  /* --- validazione --- */
-
-  const title = text(body.title, { max: 80, min: 3, label: 'Titolo' });
-
-  const lat = Number(body.lat), lng = Number(body.lng);
-  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-    throw new HttpError(400, 'Coordinate non valide');
-  }
-
-  const date = String(body.date || '').trim();
-  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new HttpError(400, 'Data non valida');
-
-  const tags = (Array.isArray(body.tags) ? body.tags : [])
-    .map(t => text(t, { max: 24, label: 'Tag' }))
-    .filter(Boolean)
-    .slice(0, 6);
-
+  const f = stickerFields(body);
   const photo = decodeDataUrl(body.photo, MAX_PHOTO, 'foto');
   const thumb = decodeDataUrl(body.thumb, MAX_THUMB, 'miniatura');
 
@@ -65,7 +39,7 @@ export default handler(async (req, context) => {
 
   /* --- salvataggio --- */
 
-  const id = (slug(title) || 'sticker') + '-' + crypto.randomUUID().slice(0, 6);
+  const id = (slug(f.title) || 'sticker') + '-' + crypto.randomUUID().slice(0, 6);
   const photoKey = id + '.' + photo.ext;
   const thumbKey = id + '-t.' + thumb.ext;
 
@@ -76,20 +50,22 @@ export default handler(async (req, context) => {
     await sql`
       insert into stickers
         (id, title, description, author, lat, lng, photo_key, thumb_key,
-         taken_on, place, country, tags, status, submitter)
+         taken_on, place, country, country_code, tags, status, submitter)
       values
-        (${id}, ${title},
-         ${text(body.description, { max: 600, label: 'Descrizione' })},
-         ${text(body.author, { max: 60, label: 'Autore' }) || 'anonimo'},
-         ${lat}, ${lng}, ${photoKey}, ${thumbKey},
-         ${date || null},
-         ${text(body.place, { max: 80, label: 'Luogo' })},
-         ${text(body.country, { max: 60, label: 'Paese' })},
-         ${tags}, 'pending', ${submitter})`;
+        (${id}, ${f.title}, ${f.description}, ${f.author}, ${f.lat}, ${f.lng},
+         ${photoKey}, ${thumbKey}, ${f.date}, ${f.place}, ${f.country}, ${f.countryCode},
+         ${f.tags}, 'pending', ${submitter})`;
   } catch (err) {
     await deletePhotos([photoKey, thumbKey]);     // niente foto orfane nei Blobs
     throw err;
   }
 
-  return json({ ok: true, id, status: 'pending' }, 201);
+  /* Notifica al moderatore. Attesa volutamente: dopo il return la funzione può essere
+     congelata, quindi un invio "fire and forget" non partirebbe in modo affidabile.
+     notifyNewSticker() non solleva eccezioni: se l'email non parte, lo sticker resta. */
+  const site = process.env.URL || new URL(req.url).origin;
+  const notifica = await notifyNewSticker(
+    Object.assign({}, f, { photoUrl: site + '/api/photo/' + photoKey }), site);
+
+  return json({ ok: true, id, status: 'pending', notified: notifica.sent }, 201);
 });

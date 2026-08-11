@@ -5,23 +5,39 @@
 Su Netlify: *Add new site → Import an existing project → GitHub → darioWhere*.
 Build command vuoto, publish directory `.`: è già tutto in [netlify.toml](netlify.toml).
 
-## 2. Crea il database
+## 2. Crea il database su Neon
 
-Nella dashboard del sito: *Extensions → Netlify DB → Install*, poi crea il database.
-Netlify imposta da sola la variabile `NETLIFY_DATABASE_URL`. Le tabelle vengono create
-alla prima chiamata dell'API, non serve nessuna migrazione a mano.
+L'estensione *Netlify DB* è stata dismessa e non crea più database nuovi, quindi il
+progetto Postgres si crea direttamente su Neon — è lo stesso servizio che stava sotto
+l'estensione, e il driver usato dal codice non cambia.
 
-> Il database creato da Netlify è *claimable*: rivendicalo con un account Neon entro pochi
-> giorni, altrimenti viene cancellato.
+1. Su [neon.com](https://neon.com) crea un account e un progetto (piano gratuito:
+   0,5 GB di storage, il compute va in pausa quando non serve).
+2. Copia la **connection string** del branch `main`, con `?sslmode=require`.
+3. Incollala su Netlify come variabile `DATABASE_URL` (passo 3).
 
-## 3. Imposta le due variabili d'ambiente
+Va bene sia l'endpoint diretto sia quello con `-pooler` nell'host: `@neondatabase/serverless`
+esegue le query su HTTPS, ogni query è una richiesta a sé e non tiene aperta una connessione,
+quindi il pooler non cambia nulla per questo progetto.
+
+Le tabelle vengono create alla prima chiamata dell'API: nessuna migrazione a mano.
+
+> Se in futuro Netlify reintroduce un'integrazione che imposta `NETLIFY_DATABASE_URL`,
+> il codice la usa senza modifiche: [netlify/lib/db.mjs](netlify/lib/db.mjs) accetta
+> `NETLIFY_DATABASE_URL`, `NETLIFY_DATABASE_URL_UNPOOLED` o `DATABASE_URL`, in quest'ordine.
+
+## 3. Imposta le variabili d'ambiente
 
 *Site configuration → Environment variables*:
 
-| Variabile | Valore |
-|---|---|
-| `ADMIN_PASSWORD` | la password con cui entri in `/admin.html` |
-| `ADMIN_SECRET` | stringa casuale lunga, firma i cookie di sessione e sala gli hash degli IP |
+| Variabile | Obbligatoria | Valore |
+|---|---|---|
+| `DATABASE_URL` | sì | la connection string Neon del passo 2 |
+| `ADMIN_PASSWORD` | sì | la password con cui entri in `/admin.html` |
+| `ADMIN_SECRET` | sì | stringa casuale lunga, firma i cookie di sessione e sala gli hash degli IP |
+| `RESEND_API_KEY` | no | chiave [Resend](https://resend.com) per la mail di notifica; se manca, la notifica è disattivata e l'invio funziona comunque |
+| `NOTIFY_EMAIL` | no | destinatario della notifica (default `a.bianchi@ads.it`) |
+| `MAIL_FROM` | no | mittente verificato su Resend (default `onboarding@resend.dev`, il mittente di prova) |
 
 Per generare il secret:
 
@@ -49,6 +65,15 @@ npx netlify dev
 `netlify dev` collega il sito remoto, quindi usa lo stesso database e gli stessi Blobs.
 Senza di esso le pagine si aprono ma `/api/*` non risponde.
 
+Per lavorare su un database separato da quello di produzione, crea un branch nel progetto
+Neon e mettine la connection string in un `.env` locale (già in `.gitignore`):
+
+```
+DATABASE_URL=postgresql://…
+ADMIN_PASSWORD=…
+ADMIN_SECRET=…
+```
+
 ## API
 
 | Metodo e rotta | Accesso | Cosa fa |
@@ -61,7 +86,21 @@ Senza di esso le pagine si aprono ma `/api/*` non risponde.
 | `GET /api/admin/session` | — | dice se la sessione è valida |
 | `GET /api/admin/stickers` | admin | tutti gli sticker, ogni stato |
 | `POST /api/admin/review` | admin | `approve` / `reject` / `delete` |
+| `POST /api/admin/update` | admin | modifica i campi di uno sticker |
 | `POST /api/admin/seed` | admin | carica gli sticker di esempio |
+
+## Notifica email
+
+Alla ricezione di una proposta parte una mail al moderatore con foto, dati e un pulsante
+verso `/admin.html`. Passa dall'API HTTP di [Resend](https://resend.com): niente SMTP,
+niente dipendenze, piano gratuito 3.000 mail al mese.
+
+Per attivarla basta `RESEND_API_KEY`. Il mittente di prova `onboarding@resend.dev`
+funziona solo verso l'indirizzo dell'account Resend: per scrivere ad altri indirizzi
+serve un dominio verificato e `MAIL_FROM` su quel dominio.
+
+Se l'invio della mail fallisce lo sticker resta comunque salvato: l'errore finisce nei
+*Function logs* e la risposta contiene `notified: false`.
 
 ## Limiti e difese
 

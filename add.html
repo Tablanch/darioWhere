@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aggiungi uno sticker — Dariowhere</title>
 
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📍</text></svg>">
+<link rel="icon" type="image/png" href="assets/favicon.png">
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="assets/css/style.css">
@@ -16,7 +16,7 @@
 
   <header class="topbar">
     <a class="brand" href="index.html">
-      <span class="brand-pin" aria-hidden="true">📍</span>
+      <img class="brand-logo" src="assets/logo.png" alt="" width="34" height="34">
       <span class="brand-name">Dario<span>where</span></span>
     </a>
     <div class="topbar-spacer"></div>
@@ -41,11 +41,13 @@
           <div class="field">
             <label for="f-file">Foto dello sticker <span class="hint">— obbligatoria</span></label>
             <input type="file" id="f-file" accept="image/*" required>
-            <p class="hint" style="margin:6px 0 0">Viene ridimensionata nel browser prima
-               dell'invio: si caricano pochi KB e i metadati EXIF originali non vengono pubblicati.</p>
+            <p class="hint" style="margin:6px 0 0">Se la foto ha i dati GPS, posizione, data,
+               città e paese vengono compilati da soli. Poi l'immagine viene ridimensionata nel
+               browser: si caricano pochi KB e i metadati originali non vengono pubblicati.</p>
           </div>
 
           <p class="err" id="err-file" hidden></p>
+          <p class="ok" id="ok-exif" hidden></p>
         </div>
 
         <div class="panel">
@@ -73,6 +75,7 @@
           <div class="actions">
             <button class="btn" type="button" id="btn-here">⌖ Usa la mia posizione</button>
             <button class="btn" type="button" id="btn-paste">Incolla "lat, lng"</button>
+            <button class="btn" type="button" id="btn-reverse">Ricava luogo dalle coordinate</button>
           </div>
           <p class="err" id="err-coords" hidden>Coordinate non valide.</p>
         </div>
@@ -107,8 +110,9 @@
               <input type="text" id="f-place" placeholder="Bologna" maxlength="80">
             </div>
             <div class="field">
-              <label for="f-country">Paese</label>
+              <label for="f-country">Paese <span class="hint" id="flag-hint"></span></label>
               <input type="text" id="f-country" placeholder="Italia" maxlength="60">
+              <input type="hidden" id="f-country-code">
             </div>
           </div>
 
@@ -145,6 +149,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="assets/js/common.js"></script>
+<script src="assets/js/exif.js"></script>
 <script src="assets/js/add.js"></script>
 </body>
 </html>
+

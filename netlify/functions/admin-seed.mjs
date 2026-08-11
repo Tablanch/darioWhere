@@ -19,11 +19,11 @@ export default handler(async req => {
     const rows = await sql`
       insert into stickers
         (id, title, description, author, lat, lng, photo_url,
-         taken_on, place, country, tags, status, submitter)
+         taken_on, place, country, country_code, tags, status, submitter)
       values
         (${s.id}, ${s.title}, ${s.description}, ${s.author}, ${s.lat}, ${s.lng},
-         ${s.photo_url}, ${s.taken_on}, ${s.place}, ${s.country}, ${s.tags},
-         'approved', 'seed')
+         ${s.photo_url}, ${s.taken_on}, ${s.place}, ${s.country}, ${s.country_code},
+         ${s.tags}, 'approved', 'seed')
       on conflict (id) do nothing
       returning id`;
     inseriti += rows.length;

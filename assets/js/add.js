@@ -10,7 +10,7 @@
   const F = {
     lat: $('f-lat'), lng: $('f-lng'), title: $('f-title'), desc: $('f-desc'),
     author: $('f-author'), date: $('f-date'), place: $('f-place'),
-    country: $('f-country'), tags: $('f-tags')
+    country: $('f-country'), countryCode: $('f-country-code'), tags: $('f-tags')
   };
 
   const MAX_SIDE = 1600;      // lato lungo della foto inviata
@@ -102,10 +102,53 @@
     setCoords(parseFloat(r.lat), parseFloat(r.lon), true);
 
     const a = r.address || {};
-    if (!F.place.value) F.place.value = a.city || a.town || a.village || a.suburb || (r.display_name || '').split(',')[0] || '';
-    if (!F.country.value) F.country.value = a.country || (r.display_name || '').split(',').pop().trim();
+    applyLuogo({
+      place: a.city || a.town || a.village || a.municipality
+             || (r.display_name || '').split(',')[0] || '',
+      country: a.country || (r.display_name || '').split(',').pop().trim(),
+      countryCode: (a.country_code || '').toUpperCase()
+    }, false);
+
     resultsEl.innerHTML = '';
     render();
+  });
+
+  /* Scrive luogo, paese e codice ISO. Con forza=false non sovrascrive quello che
+     l'utente ha già digitato a mano. */
+  function applyLuogo(luogo, forza) {
+    if (luogo.place && (forza || !F.place.value)) F.place.value = luogo.place;
+    if (luogo.country && (forza || !F.country.value)) F.country.value = luogo.country;
+    if (luogo.countryCode) F.countryCode.value = luogo.countryCode;
+    aggiornaFlagHint();
+  }
+
+  function aggiornaFlagHint() {
+    const cc = F.countryCode.value;
+    const flag = DW.flagEmoji(cc);
+    $('flag-hint').textContent = cc ? '— ' + (flag ? flag + ' ' : '') + cc : '';
+  }
+
+  /* il paese scritto a mano non ha un codice ISO affidabile: lo si azzera */
+  F.country.addEventListener('input', () => {
+    F.countryCode.value = '';
+    aggiornaFlagHint();
+  });
+
+  $('btn-reverse').addEventListener('click', async () => {
+    const c = coordsFromFields();
+    if (!c) return DW.toast('Prima scegli la posizione');
+
+    const btn = $('btn-reverse');
+    btn.disabled = true;
+    try {
+      applyLuogo(await DW.reverseGeocode(c.lat, c.lng), true);
+      render();
+      DW.toast('Luogo aggiornato');
+    } catch (ex) {
+      DW.toast(ex.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   /* ---------- posizione / incolla coordinate ---------- */
@@ -143,6 +186,13 @@
     });
   }
 
+  /* Ridimensiona su canvas e ricodifica in JPEG.
+
+     Attenzione all'orientamento EXIF: NON va riapplicato qui. I browser attuali
+     orientano già l'immagine in fase di decodifica, quindi img.naturalWidth/Height
+     riportano le dimensioni corrette e drawImage disegna la foto già dritta. Ruotare
+     di nuovo in base al tag la coricherebbe. Verificato: un JPEG 1200x1600 con
+     orientation=6 arriva a naturalWidth 1600 e naturalHeight 1200. */
   function toDataUrl(img, maxSide, quality) {
     const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
     const w = Math.max(1, Math.round(img.naturalWidth * scale));
@@ -151,16 +201,20 @@
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
+
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, w, h);
+
     return canvas.toDataURL('image/jpeg', quality);
   }
 
   $('f-file').addEventListener('change', async e => {
     const file = e.target.files && e.target.files[0];
     const err = $('err-file');
+    const okExif = $('ok-exif');
     err.hidden = true;
+    okExif.hidden = true;
 
     if (photo && photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
     photo = null;
@@ -175,14 +229,47 @@
     }
 
     try {
+      /* 1. metadati PRIMA di toccare l'immagine: la ricodifica su canvas li cancella */
+      const meta = await DWExif.read(file);
+
+      /* 2. ridimensionamento (l'orientamento lo ha già applicato il browser) */
       const img = await loadImage(file);
       photo = {
         full: toDataUrl(img, MAX_SIDE, 0.82),
         thumb: toDataUrl(img, THUMB_SIDE, 0.7)
       };
       photo.previewUrl = photo.full;
+
       const kb = Math.round(photo.full.length * 0.75 / 1024);
-      DW.toast('Foto pronta: ' + kb + ' KB');
+
+      /* 3. compilazione automatica da quello che la foto sapeva */
+      const trovato = [];
+
+      if (meta.date && !F.date.value) {
+        F.date.value = meta.date;
+        trovato.push('data');
+      }
+
+      if (meta.lat !== null) {
+        setCoords(meta.lat, meta.lng, true);
+        trovato.push('coordinate');
+
+        okExif.textContent = 'GPS trovato nella foto: cerco il luogo…';
+        okExif.hidden = false;
+
+        try {
+          const luogo = await DW.reverseGeocode(meta.lat, meta.lng);
+          applyLuogo(luogo, true);
+          if (luogo.place || luogo.country) trovato.push('luogo');
+        } catch (ex) {
+          console.warn('[Dariowhere] geocoding inverso non riuscito:', ex.message);
+        }
+      }
+
+      okExif.textContent = trovato.length
+        ? 'Dalla foto: ' + trovato.join(', ') + '. Foto pronta, ' + kb + ' KB.'
+        : 'Nessun dato GPS nella foto: scegli il punto sulla mappa. Foto pronta, ' + kb + ' KB.';
+      okExif.hidden = false;
     } catch (ex) {
       err.textContent = ex.message;
       err.hidden = false;
@@ -203,6 +290,7 @@
       date: F.date.value || '',
       place: F.place.value.trim(),
       country: F.country.value.trim(),
+      countryCode: F.countryCode.value.trim(),
       tags: F.tags.value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 6)
     };
   }
@@ -215,7 +303,7 @@
     $('preview').innerHTML = ''
       + '<img class="card-photo" src="' + DW.esc((photo && photo.previewUrl) || DW.PLACEHOLDER) + '" alt="">'
       + '<div class="card-body">'
-      +   '<h3 class="card-title">' + DW.esc(st.title || 'Sticker senza nome') + '</h3>'
+      +   '<h3 class="card-title">' + DW.titleWithFlag(st) + '</h3>'
       +   (place ? '<div class="card-place">' + DW.esc(place) + '</div>' : '')
       +   (st.description ? '<p class="card-desc">' + DW.esc(st.description) + '</p>' : '')
       +   (st.tags.length
@@ -269,7 +357,7 @@
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (ex) {
-      fail(ex.message);
+      fail(DW.apiErrorHint(ex));
     } finally {
       btnSend.disabled = false;
       btnSend.textContent = 'Invia per l\'approvazione';
@@ -290,7 +378,13 @@
 
   form.addEventListener('reset', () => {
     resetPhoto();
-    setTimeout(() => { setCoords(44.4944, 11.3433, false); render(); }, 0);
+    $('ok-exif').hidden = true;
+    setTimeout(() => {
+      F.countryCode.value = '';
+      aggiornaFlagHint();
+      setCoords(44.4944, 11.3433, false);
+      render();
+    }, 0);
   });
 
   /* ---------- avvio ---------- */

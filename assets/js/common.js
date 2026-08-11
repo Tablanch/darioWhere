@@ -54,6 +54,58 @@ window.DW = (function () {
     return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' });
   }
 
+  /* --- bandierine ---
+     Il codice ISO a due lettere diventa la coppia di "regional indicator" che i
+     browser rendono come bandiera. Nota: Windows non ha i glifi delle bandiere,
+     quindi lì si vedono le due lettere invece del disegno. */
+
+  function flagEmoji(code) {
+    if (!/^[A-Za-z]{2}$/.test(code || '')) return '';
+    return String.fromCodePoint(...code.toUpperCase().split('')
+      .map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+  }
+
+  /* Titolo con la bandiera davanti, già pronto per innerHTML */
+  function titleWithFlag(st) {
+    const flag = flagEmoji(st && st.countryCode);
+    const title = esc((st && st.title) || 'Sticker senza nome');
+    return flag
+      ? '<span class="flag" title="' + esc(st.country || '') + '">' + flag + '</span>' + title
+      : title;
+  }
+
+  /* --- geocoding inverso: coordinate → luogo, paese, codice ISO ---
+     Nominatim chiede al massimo una richiesta al secondo, quindi si serializza. */
+
+  let lastNominatim = 0;
+
+  async function reverseGeocode(lat, lng) {
+    const wait = Math.max(0, 1100 - (Date.now() - lastNominatim));
+    if (wait) await new Promise(r => setTimeout(r, wait));
+    lastNominatim = Date.now();
+
+    const url = 'https://nominatim.openstreetmap.org/reverse'
+              + '?format=jsonv2&addressdetails=1&zoom=16'
+              + '&lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lng);
+
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('Geocoding non disponibile (' + res.status + ')');
+
+    const data = await res.json();
+    const a = data.address || {};
+
+    /* Prima la città vera e propria: i campi suburb/city_district darebbero nomi come
+       "Municipio 1" o il quartiere, che sono meno riconoscibili e spezzerebbero il
+       conteggio delle città sulla mappa. */
+    return {
+      place: a.city || a.town || a.village || a.municipality || a.county
+             || a.city_district || a.suburb || '',
+      country: a.country || '',
+      countryCode: (a.country_code || '').toUpperCase(),
+      display: data.display_name || ''
+    };
+  }
+
   function slugify(s) {
     return String(s || '')
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -124,19 +176,41 @@ window.DW = (function () {
   async function api(path, options) {
     const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, options));
     let body = null;
-    try { body = await res.json(); } catch (e) { /* risposta senza corpo */ }
-    if (!res.ok) throw new Error((body && body.error) || ('Errore ' + res.status));
+    try { body = await res.json(); } catch (e) { /* risposta senza corpo JSON */ }
+    if (!res.ok) {
+      const err = new Error((body && body.error) || ('Errore ' + res.status));
+      err.status = res.status;
+      throw err;
+    }
     return body;
+  }
+
+  /* Messaggio diagnostico: distingue "API non pubblicata" da "database non configurato". */
+  function apiErrorHint(err) {
+    if (err && err.status === 404) {
+      return 'API non raggiungibile: il sito non è servito da Netlify. In locale serve "netlify dev".';
+    }
+    if (err && err.status === 503) {
+      return err.message;      // arriva dalla funzione: es. DATABASE_URL mancante
+    }
+    if (err && !err.status) {
+      return 'Nessuna risposta dal server: connessione assente o richiesta bloccata.';
+    }
+    return err && err.message ? err.message : 'Errore sconosciuto';
   }
 
   /* --- icona pin con miniatura della foto --- */
 
   function pinIcon(st) {
+    /* La miniatura è uno sfondo, non un <img>: con background-size:cover il ritaglio
+       resta centrato dentro il cerchio qualunque sia il formato dell'immagine. Il
+       secondo url è il segnaposto, che il browser mostra se il primo non carica. */
+    const url = String(thumbOf(st)).replace(/['"()\s]/g, encodeURIComponent);
+
     return L.divIcon({
       className: 'pin-wrap',
       html: '<div class="pin">'
-          +   '<div class="pin-shape"><img class="pin-photo" src="' + esc(thumbOf(st))
-          +     '" alt="" onerror="this.src=\'' + PLACEHOLDER + '\'"></div>'
+          +   '<div class="pin-shape" style="background-image:url(\'' + url + '\'),url(\'' + PLACEHOLDER + '\')"></div>'
           +   '<div class="pin-tail"></div>'
           + '</div>',
       iconSize: [44, 53],
@@ -148,7 +222,8 @@ window.DW = (function () {
   return {
     initTheme, applyTheme, currentTheme,
     esc, photoOf, thumbOf, fmtCoords, fmtDate, slugify,
-    toast, copy, api, baseLayers, baseFor, pinIcon,
+    flagEmoji, titleWithFlag, reverseGeocode,
+    toast, copy, api, apiErrorHint, baseLayers, baseFor, pinIcon,
     PLACEHOLDER
   };
 })();

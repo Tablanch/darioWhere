@@ -71,7 +71,7 @@
       +      ' data-lightbox="' + DW.esc(st.id) + '"'
       +      ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
       + '<div class="card-body">'
-      +   '<h3 class="card-title">' + DW.esc(st.title || 'Sticker senza nome') + '</h3>'
+      +   '<h3 class="card-title">' + DW.titleWithFlag(st) + '</h3>'
       +   (place ? '<div class="card-place">' + DW.esc(place) + '</div>' : '')
       +   (st.description ? '<p class="card-desc">' + DW.esc(st.description) + '</p>' : '')
       +   (st.tags && st.tags.length
@@ -111,7 +111,7 @@
       +   '<img class="thumb" src="' + DW.esc(DW.thumbOf(st)) + '" alt="" loading="lazy"'
       +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
       +   '<div class="li-body">'
-      +     '<div class="li-title">' + DW.esc(st.title || 'Sticker senza nome') + '</div>'
+      +     '<div class="li-title">' + DW.titleWithFlag(st) + '</div>'
       +     '<div class="li-meta">' + DW.esc([st.place, st.author && ('di ' + st.author)].filter(Boolean).join(' · ')) + '</div>'
       +   '</div>'
       + '</li>').join('');
@@ -183,18 +183,28 @@
       renderList('');
       fitAll(false);
 
-      const luoghi = new Set(stickers.map(s => s.country || s.place).filter(Boolean)).size;
-      counterEl.textContent = stickers.length + ' sticker' + (luoghi ? ' in ' + luoghi + ' luoghi' : '');
+      /* Le città si contano sul campo "place" normalizzato: contare i paesi darebbe
+         numeri sorprendentemente bassi ("4 sticker in 2 luoghi" per quattro città di
+         tre stati diversi). Il conteggio dei paesi resta nel tooltip. */
+      const chiave = s => (s.place || s.country || '').trim().toLowerCase();
+      const citta = new Set(stickers.map(chiave).filter(Boolean));
+      const paesi = new Set(stickers.map(s => (s.countryCode || s.country || '').trim().toUpperCase()).filter(Boolean));
+
+      counterEl.textContent = stickers.length + ' sticker'
+        + (citta.size ? ' in ' + citta.size + (citta.size === 1 ? ' città' : ' città') : '');
+      counterEl.title = citta.size + (citta.size === 1 ? ' città' : ' città')
+        + ', ' + paesi.size + (paesi.size === 1 ? ' paese' : ' paesi');
 
       if (!stickers.length) emptyEl.textContent = 'Ancora nessuno sticker. Sii il primo ad aggiungerne uno.';
       setTimeout(fromHash, 250);
     })
     .catch(err => {
-      console.error('[Dariowhere]', err);
-      emptyEl.textContent = 'Impossibile caricare gli sticker.';
+      const hint = DW.apiErrorHint(err);
+      console.error('[Dariowhere] GET /api/stickers →', err.status || 'nessuna risposta', err);
+      emptyEl.textContent = hint;
       emptyEl.hidden = false;
       footEl.textContent = '';
-      DW.toast('Gli sticker non si caricano: riprova tra poco');
+      DW.toast('Sticker non caricati');
     });
 
   /* ---------- interazioni ---------- */

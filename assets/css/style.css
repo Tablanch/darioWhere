@@ -78,12 +78,25 @@ a { color: inherit; }
   letter-spacing: -.02em;
 }
 
-.brand-pin {
-  font-size: 20px;
-  filter: saturate(1.2);
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
 }
 
 .brand-name span { color: var(--accent); }
+
+/* bandierina davanti al titolo */
+.flag {
+  margin-right: 6px;
+  font-size: 1.05em;
+  line-height: 1;
+  /* su Windows mancano i glifi delle bandiere e si vedono le due lettere: qui almeno
+     restano compatte e leggibili */
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  letter-spacing: -.04em;
+}
 
 .counter {
   font-size: 13px;
@@ -288,17 +301,14 @@ a { color: inherit; }
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  overflow: hidden;
   border: 3px solid var(--accent);
-  background: var(--panel-2);
   box-shadow: var(--shadow-sm);
-}
 
-.pin-photo {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  /* la miniatura arriva da background-image inline (vedi pinIcon in common.js) */
+  background-color: var(--panel-2);
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
 }
 
 .pin-tail {
@@ -732,6 +742,39 @@ html[data-theme="dark"] .ok { color: #4ade80; }
 
 html[data-theme="dark"] .badge.pending  { color: #fbbf24; border-color: #fbbf24; }
 html[data-theme="dark"] .badge.approved { color: #4ade80; border-color: #4ade80; }
+
+/* form di modifica dentro la scheda admin */
+
+.edit-form { margin-top: 4px; }
+
+.edit-form .field { margin-bottom: 9px; }
+
+.edit-form .field label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-dim);
+}
+
+.edit-form input,
+.edit-form textarea,
+.edit-form select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.edit-form textarea { resize: vertical; min-height: 62px; }
+
+.edit-form .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.edit-form .field-row.three { grid-template-columns: 1fr 1fr 78px; }
+
+.admin-card.editing { box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* ===== responsive ===== */
 
