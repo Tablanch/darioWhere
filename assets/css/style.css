@@ -12,7 +12,7 @@
   --shadow:        0 6px 24px rgba(20, 24, 35, .14);
   --shadow-sm:     0 2px 8px rgba(20, 24, 35, .10);
   --radius:        14px;
-  --sidebar-w:     330px;
+  --sidebar-w:     380px;   /* la sovrascrive JS quando si trascina il bordo */
   --topbar-h:      58px;
 }
 
@@ -176,9 +176,44 @@ a { color: inherit; }
   display: flex;
   flex-direction: column;
   background: var(--panel);
-  border-right: 1px solid var(--border);
   min-height: 0;
 }
+
+/* elenco collassato: sparisce insieme alla maniglia di ridimensionamento */
+.app.sidebar-hidden .sidebar,
+.app.sidebar-hidden .sidebar-resizer { display: none; }
+
+/* maniglia: fa anche da separatore fra elenco e mappa */
+.sidebar-resizer {
+  flex: 0 0 7px;
+  position: relative;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sidebar-resizer::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 3px;
+  height: 38px;
+  transform: translateY(-50%);
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.sidebar-resizer:hover::after,
+.sidebar-resizer:focus-visible::after,
+.sidebar-resizer.dragging::after { background: var(--accent); }
+
+.sidebar-resizer:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* durante il trascinamento niente selezione di testo e cursore coerente */
+body.resizing { cursor: col-resize; user-select: none; }
+body.resizing #map { pointer-events: none; }
 
 .search-wrap { padding: 12px; border-bottom: 1px solid var(--border); }
 
@@ -778,26 +813,32 @@ html[data-theme="dark"] .badge.approved { color: #4ade80; border-color: #4ade80;
 
 /* ===== responsive ===== */
 
-.only-mobile { display: none; }
-
 @media (max-width: 780px) {
-  .only-mobile { display: grid; }
+  /* su schermo piccolo l'elenco diventa un pannello sovrapposto e la maniglia sparisce */
+  .sidebar-resizer { display: none; }
 
   .sidebar {
     position: absolute;
     top: var(--topbar-h);
     bottom: 0;
     left: 0;
-    width: min(86vw, 340px);
+    width: min(88vw, 360px);
+    flex-basis: auto;
     z-index: 1100;
     box-shadow: var(--shadow);
     transform: translateX(-102%);
     transition: transform .22s ease;
   }
 
-  .sidebar.open { transform: none; }
+  .app.sidebar-hidden .sidebar { display: flex; }        /* resta nel flusso, solo spostata fuori */
+  .app:not(.sidebar-hidden) .sidebar { transform: none; }
 
   .brand-name { font-size: 17px; }
   .cols { grid-template-columns: 1fr; }
   .counter { display: none; }
+}
+
+@media (max-width: 560px) {
+  .btn-label { display: none; }                           /* resta il solo "+" */
+  .topbar { gap: 7px; padding: 0 10px; }
 }

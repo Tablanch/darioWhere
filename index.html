@@ -17,7 +17,8 @@
 <div class="app">
 
   <header class="topbar">
-    <button class="icon-btn only-mobile" id="btn-toggle-sidebar" aria-label="Mostra elenco sticker" title="Elenco sticker">☰</button>
+    <button class="icon-btn" id="btn-toggle-sidebar" aria-label="Mostra o nascondi l'elenco"
+            aria-expanded="true" aria-controls="sidebar" title="Nascondi elenco">☰</button>
 
     <a class="brand" href="index.html">
       <img class="brand-logo" src="assets/logo.png" alt="" width="34" height="34">
@@ -27,7 +28,8 @@
     <div class="topbar-spacer"></div>
 
     <span class="counter" id="counter" title="Sticker sulla mappa"></span>
-    <a class="btn" href="add.html">+ Aggiungi sticker</a>
+    <a class="btn" href="add.html">+&nbsp;<span class="btn-label">Aggiungi sticker</span></a>
+    <a class="btn" href="admin.html" title="Moderazione">Admin</a>
     <button class="icon-btn" id="btn-theme" aria-label="Cambia tema" title="Tema chiaro/scuro">◐</button>
   </header>
 
@@ -44,6 +46,10 @@
         <button class="linklike" id="btn-fit">Inquadra tutti</button>
       </footer>
     </aside>
+
+    <div class="sidebar-resizer" id="sidebar-resizer" role="separator" aria-orientation="vertical"
+         aria-label="Ridimensiona l'elenco" tabindex="0"
+         title="Trascina per ridimensionare, doppio clic per la larghezza predefinita"></div>
 
     <div class="map-wrap">
       <div id="map" role="application" aria-label="Mappa degli sticker"></div>

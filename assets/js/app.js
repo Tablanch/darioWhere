@@ -238,13 +238,108 @@
     );
   });
 
-  const sidebar = document.getElementById('sidebar');
-  document.getElementById('btn-toggle-sidebar')
-    .addEventListener('click', () => sidebar.classList.toggle('open'));
+  /* ---------- elenco: collassabile e ridimensionabile ---------- */
+
+  const appEl = document.querySelector('.app');
+  const resizer = document.getElementById('sidebar-resizer');
+  const toggleBtn = document.getElementById('btn-toggle-sidebar');
+
+  const MIN_W = 260, MAX_W = 640, DEF_W = 380;
+  const KEY_W = 'dariowhere:sidebarWidth';
+  const KEY_HIDDEN = 'dariowhere:sidebarHidden';
+
+  const mq = window.matchMedia('(max-width: 780px)');
+  const isMobile = () => mq.matches;
+
+  function setWidth(px, persist) {
+    const w = Math.round(Math.max(MIN_W, Math.min(MAX_W, px)));
+    document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+    if (persist) localStorage.setItem(KEY_W, String(w));
+    return w;
+  }
+
+  /* Leaflet tiene in cache le dimensioni del contenitore: senza invalidateSize la
+     mappa resta della larghezza vecchia e i click cadono spostati. */
+  function refreshMap() {
+    map.invalidateSize({ pan: false, debounceMoveend: true });
+  }
+
+  function setHidden(hidden, persist) {
+    appEl.classList.toggle('sidebar-hidden', hidden);
+    toggleBtn.setAttribute('aria-expanded', String(!hidden));
+    toggleBtn.title = hidden ? 'Mostra elenco' : 'Nascondi elenco';
+    if (persist && !isMobile()) localStorage.setItem(KEY_HIDDEN, hidden ? '1' : '0');
+    setTimeout(refreshMap, 0);
+  }
+
+  const savedWidth = parseInt(localStorage.getItem(KEY_W), 10);
+  if (isFinite(savedWidth)) setWidth(savedWidth, false);
+
+  /* Su schermo piccolo l'elenco parte chiuso, altrimenti vale la preferenza salvata.
+     Va rivalutato al cambio di breakpoint e non solo al caricamento: la finestra può
+     nascere strettissima (o venire ridimensionata) e altrimenti l'elenco resterebbe
+     chiuso anche tornati in larghezza. */
+  function applyBreakpointState() {
+    setHidden(isMobile() ? true : localStorage.getItem(KEY_HIDDEN) === '1', false);
+  }
+
+  applyBreakpointState();
+  mq.addEventListener('change', applyBreakpointState);
+
+  toggleBtn.addEventListener('click', () =>
+    setHidden(!appEl.classList.contains('sidebar-hidden'), true));
 
   function closeSidebarOnMobile() {
-    if (window.matchMedia('(max-width: 780px)').matches) sidebar.classList.remove('open');
+    if (isMobile()) setHidden(true, false);
   }
+
+  /* trascinamento della maniglia */
+
+  let dragging = false, pending = 0;
+
+  resizer.addEventListener('pointerdown', e => {
+    if (isMobile() || e.button !== 0) return;
+    dragging = true;
+    resizer.setPointerCapture(e.pointerId);
+    resizer.classList.add('dragging');
+    document.body.classList.add('resizing');
+    e.preventDefault();
+  });
+
+  resizer.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    setWidth(e.clientX, false);            // l'elenco parte da x = 0
+    if (!pending) {
+      pending = requestAnimationFrame(() => { pending = 0; refreshMap(); });
+    }
+  });
+
+  function endDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    if (e && e.pointerId != null && resizer.hasPointerCapture(e.pointerId)) {
+      resizer.releasePointerCapture(e.pointerId);
+    }
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('resizing');
+    setWidth(parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10), true);
+    refreshMap();
+  }
+
+  resizer.addEventListener('pointerup', endDrag);
+  resizer.addEventListener('pointercancel', endDrag);
+
+  resizer.addEventListener('dblclick', () => { setWidth(DEF_W, true); refreshMap(); });
+
+  // da tastiera: frecce per regolare, Invio per collassare
+  resizer.addEventListener('keydown', e => {
+    const corrente = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10);
+    if (e.key === 'ArrowLeft')       { setWidth(corrente - 24, true); refreshMap(); }
+    else if (e.key === 'ArrowRight') { setWidth(corrente + 24, true); refreshMap(); }
+    else if (e.key === 'Enter')      { setHidden(true, true); }
+    else return;
+    e.preventDefault();
+  });
 
   /* ---------- lightbox + azioni nel popup ---------- */
 
