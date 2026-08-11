@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Dariowhere — la mappa degli sticker</title>
+<meta name="description" content="Mappa interattiva degli sticker Dario sparsi per il mondo.">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📍</text></svg>">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <button class="icon-btn only-mobile" id="btn-toggle-sidebar" aria-label="Mostra elenco sticker" title="Elenco sticker">☰</button>
+
+    <a class="brand" href="index.html">
+      <span class="brand-pin" aria-hidden="true">📍</span>
+      <span class="brand-name">Dario<span>where</span></span>
+    </a>
+
+    <div class="topbar-spacer"></div>
+
+    <span class="counter" id="counter" title="Sticker sulla mappa"></span>
+    <a class="btn" href="add.html">+ Aggiungi sticker</a>
+    <button class="icon-btn" id="btn-theme" aria-label="Cambia tema" title="Tema chiaro/scuro">◐</button>
+  </header>
+
+  <div class="main">
+
+    <aside class="sidebar" id="sidebar" aria-label="Elenco sticker">
+      <div class="search-wrap">
+        <input type="search" id="search" placeholder="Cerca luogo, autore, descrizione…" autocomplete="off" aria-label="Cerca sticker">
+      </div>
+      <ul class="sticker-list" id="sticker-list"></ul>
+      <p class="empty" id="list-empty" hidden>Nessuno sticker trovato.</p>
+      <footer class="sidebar-foot">
+        <span id="foot-count"></span>
+        <button class="linklike" id="btn-fit">Inquadra tutti</button>
+      </footer>
+    </aside>
+
+    <div class="map-wrap">
+      <div id="map" role="application" aria-label="Mappa degli sticker"></div>
+      <button class="locate-btn" id="btn-locate" title="Dove sono?" aria-label="Vai alla mia posizione">⌖</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- lightbox foto -->
+<div class="lightbox" id="lightbox" hidden>
+  <button class="lightbox-close" id="lightbox-close" aria-label="Chiudi">✕</button>
+  <figure>
+    <img id="lightbox-img" alt="">
+    <figcaption id="lightbox-cap"></figcaption>
+  </figure>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

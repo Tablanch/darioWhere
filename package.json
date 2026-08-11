@@ -1,0 +1,17 @@
+{
+  "name": "dariowhere",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mappa interattiva degli sticker sparsi per il mondo",
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^8.1.0",
+    "@neondatabase/serverless": "^0.10.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

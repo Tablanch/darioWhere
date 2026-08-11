@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aggiungi uno sticker — Dariowhere</title>
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📍</text></svg>">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-pin" aria-hidden="true">📍</span>
+      <span class="brand-name">Dario<span>where</span></span>
+    </a>
+    <div class="topbar-spacer"></div>
+    <a class="btn" href="index.html">← Torna alla mappa</a>
+    <button class="icon-btn" id="btn-theme" aria-label="Cambia tema" title="Tema chiaro/scuro">◐</button>
+  </header>
+
+  <div class="page">
+   <div class="page-inner">
+
+    <h1>Aggiungi uno sticker</h1>
+    <p class="lead">Carica la foto, indica il punto sulla mappa e racconta dov'è.
+       Prima di comparire online passa da un'approvazione.</p>
+
+    <form id="form" novalidate>
+     <div class="cols">
+
+      <div>
+        <div class="panel">
+          <h2>1. Foto</h2>
+
+          <div class="field">
+            <label for="f-file">Foto dello sticker <span class="hint">— obbligatoria</span></label>
+            <input type="file" id="f-file" accept="image/*" required>
+            <p class="hint" style="margin:6px 0 0">Viene ridimensionata nel browser prima
+               dell'invio: si caricano pochi KB e i metadati EXIF originali non vengono pubblicati.</p>
+          </div>
+
+          <p class="err" id="err-file" hidden></p>
+        </div>
+
+        <div class="panel">
+          <h2>2. Posizione</h2>
+
+          <div class="geo-search">
+            <input type="text" id="geo-q" placeholder="Cerca un indirizzo o una città…" aria-label="Cerca luogo">
+            <button class="btn" type="button" id="geo-go">Cerca</button>
+          </div>
+          <ul class="geo-results" id="geo-results"></ul>
+
+          <div class="pick-map" id="pick-map"></div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="f-lat">Latitudine</label>
+              <input type="number" id="f-lat" step="0.00001" min="-90" max="90" placeholder="44.49437" required>
+            </div>
+            <div class="field">
+              <label for="f-lng">Longitudine</label>
+              <input type="number" id="f-lng" step="0.00001" min="-180" max="180" placeholder="11.34331" required>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn" type="button" id="btn-here">⌖ Usa la mia posizione</button>
+            <button class="btn" type="button" id="btn-paste">Incolla "lat, lng"</button>
+          </div>
+          <p class="err" id="err-coords" hidden>Coordinate non valide.</p>
+        </div>
+
+        <div class="panel">
+          <h2>3. Dettagli</h2>
+
+          <div class="field">
+            <label for="f-title">Titolo <span class="hint">— nome del posto</span></label>
+            <input type="text" id="f-title" placeholder="Portici di via Zamboni" maxlength="80" required>
+          </div>
+
+          <div class="field">
+            <label for="f-desc">Descrizione</label>
+            <textarea id="f-desc" placeholder="Dov'è esattamente, com'è finito lì, com'è ridotto oggi…" maxlength="600"></textarea>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="f-author">Il tuo nome</label>
+              <input type="text" id="f-author" placeholder="Dario" maxlength="60">
+            </div>
+            <div class="field">
+              <label for="f-date">Data</label>
+              <input type="date" id="f-date">
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="f-place">Città / quartiere</label>
+              <input type="text" id="f-place" placeholder="Bologna" maxlength="80">
+            </div>
+            <div class="field">
+              <label for="f-country">Paese</label>
+              <input type="text" id="f-country" placeholder="Italia" maxlength="60">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="f-tags">Tag <span class="hint">— separati da virgola, massimo 6</span></label>
+            <input type="text" id="f-tags" placeholder="portici, università">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h2>Come apparirà</h2>
+          <div class="preview-card" id="preview"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Invio</h2>
+          <div class="actions">
+            <button class="btn primary" type="submit" id="btn-send">Invia per l'approvazione</button>
+            <button class="btn" type="reset" id="btn-reset">Svuota</button>
+          </div>
+          <p class="err" id="err-form" hidden></p>
+          <p class="ok" id="ok-form" hidden></p>
+        </div>
+      </div>
+
+     </div>
+    </form>
+
+   </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="assets/js/common.js"></script>
+<script src="assets/js/add.js"></script>
+</body>
+</html>

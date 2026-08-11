@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Moderazione — Dariowhere</title>
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📍</text></svg>">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-pin" aria-hidden="true">📍</span>
+      <span class="brand-name">Dario<span>where</span></span>
+    </a>
+    <span class="counter">moderazione</span>
+    <div class="topbar-spacer"></div>
+    <button class="btn" id="btn-logout" hidden>Esci</button>
+    <a class="btn" href="index.html">← Mappa</a>
+    <button class="icon-btn" id="btn-theme" aria-label="Cambia tema" title="Tema chiaro/scuro">◐</button>
+  </header>
+
+  <div class="page">
+   <div class="page-inner">
+
+    <!-- accesso -->
+    <section id="login" hidden>
+      <div class="login-box panel">
+        <h2>Accesso riservato</h2>
+        <form id="login-form">
+          <div class="field">
+            <label for="f-pw">Password admin</label>
+            <input type="password" id="f-pw" autocomplete="current-password" required>
+          </div>
+          <div class="actions">
+            <button class="btn primary" type="submit" id="btn-login">Entra</button>
+          </div>
+          <p class="err" id="login-err" hidden></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- moderazione -->
+    <section id="panel" hidden>
+      <h1>Sticker inviati</h1>
+      <p class="lead" id="summary">Carico…</p>
+
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-status="pending">In attesa <span data-count="pending">0</span></button>
+        <button class="tab" data-status="approved">Pubblicati <span data-count="approved">0</span></button>
+        <button class="tab" data-status="rejected">Rifiutati <span data-count="rejected">0</span></button>
+        <div class="topbar-spacer"></div>
+        <button class="linklike" id="btn-seed">Carica i 7 sticker di esempio</button>
+      </div>
+
+      <div class="admin-grid" id="grid"></div>
+      <p class="empty" id="grid-empty" hidden>Niente da mostrare qui.</p>
+    </section>
+
+   </div>
+  </div>
+</div>
+
+<script src="assets/js/common.js"></script>
+<script src="assets/js/admin.js"></script>
+</body>
+</html>
