@@ -99,7 +99,7 @@
       +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
       +   '<div class="admin-card-body">'
       +     '<div class="admin-card-head">'
-      +       '<h3>' + DW.titleWithFlag(s) + '</h3>'
+      +       '<h3>' + DW.esc(s.title) + '</h3>'
       +       '<span class="badge ' + DW.esc(s.status) + '">' + DW.esc(s.status) + '</span>'
       +     '</div>'
       +     (place ? '<div class="card-place">' + DW.esc(place) + '</div>' : '')
@@ -133,7 +133,10 @@
       +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
       +   '<div class="admin-card-body">'
       +     '<form class="edit-form" data-edit="' + id + '">'
-      +       campo('title', 'Titolo', s.title, 'maxlength="80" required')
+      /* nel form si modifica il nome pulito: la bandiera la riaccoda il backend
+         partendo dal codice ISO, così non se ne accumulano e cambiando paese
+         si aggiorna da sola */
+      +       campo('title', 'Titolo (senza bandiera)', DW.stripFlag(s.title), 'maxlength="80" required')
       +       '<div class="field"><label>Descrizione</label>'
       +         '<textarea name="description" maxlength="600">' + v(s.description) + '</textarea></div>'
       +       '<div class="field-row">'

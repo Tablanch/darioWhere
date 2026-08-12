@@ -4,6 +4,7 @@ import { db, ensureSchema } from '../lib/db.mjs';
 import { handler, json, requireMethod } from '../lib/http.mjs';
 import { requireAdmin } from '../lib/auth.mjs';
 import { SEED } from '../lib/seed.mjs';
+import { titleWithFlag } from '../lib/flag.mjs';
 
 export const config = { path: '/api/admin/seed' };
 
@@ -21,7 +22,8 @@ export default handler(async req => {
         (id, title, description, author, lat, lng, photo_url,
          taken_on, place, country, country_code, tags, status, submitter)
       values
-        (${s.id}, ${s.title}, ${s.description}, ${s.author}, ${s.lat}, ${s.lng},
+        (${s.id}, ${titleWithFlag(s.title, s.country_code)},
+         ${s.description}, ${s.author}, ${s.lat}, ${s.lng},
          ${s.photo_url}, ${s.taken_on}, ${s.place}, ${s.country}, ${s.country_code},
          ${s.tags}, 'approved', 'seed')
       on conflict (id) do nothing

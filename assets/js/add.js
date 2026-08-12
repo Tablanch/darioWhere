@@ -303,7 +303,7 @@
     $('preview').innerHTML = ''
       + '<img class="card-photo" src="' + DW.esc((photo && photo.previewUrl) || DW.PLACEHOLDER) + '" alt="">'
       + '<div class="card-body">'
-      +   '<h3 class="card-title">' + DW.titleWithFlag(st) + '</h3>'
+      +   '<h3 class="card-title">' + DW.esc(DW.titleWithFlag(st.title, st.countryCode) || 'Sticker senza nome') + '</h3>'
       +   (place ? '<div class="card-place">' + DW.esc(place) + '</div>' : '')
       +   (st.description ? '<p class="card-desc">' + DW.esc(st.description) + '</p>' : '')
       +   (st.tags.length

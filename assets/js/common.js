@@ -57,7 +57,12 @@ window.DW = (function () {
   /* --- bandierine ---
      Il codice ISO a due lettere diventa la coppia di "regional indicator" che i
      browser rendono come bandiera. Nota: Windows non ha i glifi delle bandiere,
-     quindi lì si vedono le due lettere invece del disegno. */
+     quindi lì si vedono le due lettere invece del disegno.
+
+     La bandiera è parte del campo "title" salvato sul database (vedi
+     netlify/lib/flag.mjs): chi legge dall'API stampa il titolo così com'è. Le
+     funzioni qui sotto servono solo all'anteprima del form, dove il titolo non è
+     ancora stato salvato. */
 
   function flagEmoji(code) {
     if (!/^[A-Za-z]{2}$/.test(code || '')) return '';
@@ -65,13 +70,17 @@ window.DW = (function () {
       .map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
   }
 
-  /* Titolo con la bandiera davanti, già pronto per innerHTML */
-  function titleWithFlag(st) {
-    const flag = flagEmoji(st && st.countryCode);
-    const title = esc((st && st.title) || 'Sticker senza nome');
-    return flag
-      ? '<span class="flag" title="' + esc(st.country || '') + '">' + flag + '</span>' + title
-      : title;
+  const FLAG_AT_END = /(?:\s*[\u{1F1E6}-\u{1F1FF}]{2})+\s*$/u;
+
+  function stripFlag(title) {
+    return String(title == null ? '' : title).replace(FLAG_AT_END, '').trim();
+  }
+
+  /* nome pulito + spazio + bandiera, identico a quello che salva il backend */
+  function titleWithFlag(title, code) {
+    const base = stripFlag(title);
+    const flag = flagEmoji(code);
+    return flag ? base + ' ' + flag : base;
   }
 
   /* --- geocoding inverso: coordinate → luogo, paese, codice ISO ---
@@ -222,7 +231,7 @@ window.DW = (function () {
   return {
     initTheme, applyTheme, currentTheme,
     esc, photoOf, thumbOf, fmtCoords, fmtDate, slugify,
-    flagEmoji, titleWithFlag, reverseGeocode,
+    flagEmoji, stripFlag, titleWithFlag, reverseGeocode,
     toast, copy, api, apiErrorHint, baseLayers, baseFor, pinIcon,
     PLACEHOLDER
   };

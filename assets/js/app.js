@@ -71,7 +71,7 @@
       +      ' data-lightbox="' + DW.esc(st.id) + '"'
       +      ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
       + '<div class="card-body">'
-      +   '<h3 class="card-title">' + DW.titleWithFlag(st) + '</h3>'
+      +   '<h3 class="card-title">' + DW.esc(st.title || 'Sticker senza nome') + '</h3>'
       +   (place ? '<div class="card-place">' + DW.esc(place) + '</div>' : '')
       +   (st.description ? '<p class="card-desc">' + DW.esc(st.description) + '</p>' : '')
       +   (st.tags && st.tags.length
@@ -111,7 +111,7 @@
       +   '<img class="thumb" src="' + DW.esc(DW.thumbOf(st)) + '" alt="" loading="lazy"'
       +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
       +   '<div class="li-body">'
-      +     '<div class="li-title">' + DW.titleWithFlag(st) + '</div>'
+      +     '<div class="li-title">' + DW.esc(st.title || 'Sticker senza nome') + '</div>'
       +     '<div class="li-meta">' + DW.esc([st.place, st.author && ('di ' + st.author)].filter(Boolean).join(' · ')) + '</div>'
       +   '</div>'
       + '</li>').join('');
@@ -181,6 +181,11 @@
       stickers = (data || []).filter(s => isFinite(s.lat) && isFinite(s.lng));
       addMarkers();
       renderList('');
+
+      /* Se il contenitore era ancora a dimensione zero quando la mappa è nata (finestra
+         strettissima, scheda in secondo piano), Leaflet ha misure sbagliate e fitBounds
+         inquadrerebbe un'area degenere, lasciando i pin fuori dalla vista. */
+      refreshMap();
       fitAll(false);
 
       /* Le città si contano sul campo "place" normalizzato: contare i paesi darebbe

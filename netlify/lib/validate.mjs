@@ -3,6 +3,7 @@
    sarebbe inutilizzabile (titolo troppo corto, coordinate fuori scala, data illeggibile). */
 
 import { HttpError } from './db.mjs';
+import { titleWithFlag, stripFlag } from './flag.mjs';
 
 export function text(value, { max, min = 0, label = 'Campo' } = {}) {
   const s = String(value == null ? '' : value).trim().replace(/\s+/g, ' ');
@@ -18,7 +19,10 @@ export function slug(s) {
 
 /* Campi comuni a invio e modifica. Ritorna valori già puliti e pronti per il DB. */
 export function stickerFields(body) {
-  const title = text(body.title, { max: 80, min: 3, label: 'Titolo' });
+  /* Il titolo in arrivo può già contenere la bandiera (per esempio dal form di
+     modifica, che mostra il titolo come è salvato): la lunghezza minima e massima si
+     misurano sul nome pulito, la bandiera viene riaccodata dopo. */
+  const nome = text(stripFlag(body.title), { max: 80, min: 3, label: 'Titolo' });
 
   const lat = Number(body.lat), lng = Number(body.lng);
   if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
@@ -39,7 +43,7 @@ export function stickerFields(body) {
     .slice(0, 6);
 
   return {
-    title,
+    title: titleWithFlag(nome, countryCode),
     description: text(body.description, { max: 600, label: 'Descrizione' }),
     author: text(body.author, { max: 60, label: 'Autore' }) || 'anonimo',
     lat,
