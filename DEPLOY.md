@@ -108,6 +108,10 @@ Se l'invio della mail fallisce lo sticker resta comunque salvato: l'errore finis
   1600px lato lungo (JPEG q0.82, ~300 KB) e genera una miniatura da 160px per i pin.
   Il server rifiuta comunque foto oltre 3 MB e miniature oltre 400 KB.
 - **EXIF**: la ricodifica su canvas elimina i metadati dell'originale, GPS del telefono compreso.
+- **GPS dalla foto su Android**: il selettore foto di sistema rimuove la posizione dalle
+  immagini che consegna al browser, quindi l'EXIF arriva con la data ma senza coordinate.
+  Non è aggirabile da una pagina web: il form lo dice e propone la posizione del
+  dispositivo o la scelta a mano. Su iOS e da desktop il GPS si legge normalmente.
 - **Rate limiting**: massimo 5 invii all'ora per IP, che viene salvato solo come hash salato.
 - **Login**: 6 tentativi poi un minuto di attesa, cookie `HttpOnly; Secure; SameSite=Strict`
   valido 12 ore.

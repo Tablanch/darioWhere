@@ -221,12 +221,10 @@
 
     if (!file) { render(); return; }
 
-    if (!/^image\//.test(file.type)) {
-      err.textContent = 'Serve un file immagine.';
-      err.hidden = false;
-      render();
-      return;
-    }
+    /* Nessun filtro sul tipo MIME: alcuni selettori Android consegnano il file con
+       type vuoto o generico, e scartarlo qui significava rifiutare foto valide.
+       A filtrare basta accept="image/*" sull'input; se poi il file non è
+       un'immagine decodificabile lo scopre loadImage() e l'errore arriva da lì. */
 
     try {
       /* 1. metadati PRIMA di toccare l'immagine: la ricodifica su canvas li cancella */
@@ -266,9 +264,35 @@
         }
       }
 
-      okExif.textContent = trovato.length
-        ? 'Dalla foto: ' + trovato.join(', ') + '. Foto pronta, ' + kb + ' KB.'
-        : 'Nessun dato GPS nella foto: scegli il punto sulla mappa. Foto pronta, ' + kb + ' KB.';
+      /* Messaggio specifico: "nessun GPS" ha cause diverse e solo una è colpa nostra.
+         Su Android il selettore foto di sistema rimuove la posizione dalle immagini
+         che passa al browser, quindi l'EXIF arriva con la data ma senza coordinate:
+         non è recuperabile da una pagina web, si ripiega sulla posizione del
+         dispositivo o sul punto scelto a mano. */
+      const spiegazione = {
+        'exif-no-gps': 'La foto ha i metadati ma non la posizione. Su Android è normale: '
+                     + 'il selettore di sistema la rimuove. Usa "la mia posizione" o scegli sulla mappa.',
+        'exif-vuoto':  'La foto non contiene posizione né data: scegli il punto sulla mappa.',
+        'no-exif':     'La foto non ha metadati (probabilmente è già stata rielaborata): '
+                     + 'scegli il punto sulla mappa.',
+        'non-jpeg':    'Formato senza metadati leggibili (HEIC, PNG o WebP): scegli il punto sulla mappa.',
+        'troncato':    'Metadati non raggiungibili in questa foto: scegli il punto sulla mappa.',
+        'illeggibile': 'Non riesco a leggere il file: riprova o scegli una foto diversa.'
+      };
+
+      /* Messaggio additivo: elenca quello che è stato ricavato e, se le coordinate
+         mancano, spiega anche perché. Dirne solo una delle due lasciava l'utente
+         senza la parte utile: "ho preso la data" non dice che il GPS non c'era. */
+      const parti = [];
+      if (trovato.length) parti.push('Dalla foto: ' + trovato.join(', ') + '.');
+      if (meta.lat === null) {
+        parti.push(spiegazione[meta.reason]
+          || 'Nessuna posizione nella foto: scegli il punto sulla mappa.');
+      }
+      parti.push('Foto pronta, ' + kb + ' KB.');
+      okExif.textContent = parti.join(' ');
+
+      console.log('[Dariowhere] EXIF:', meta.reason, meta);
       okExif.hidden = false;
     } catch (ex) {
       err.textContent = ex.message;

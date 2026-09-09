@@ -19,6 +19,7 @@ window.DWExif = (function () {
     GPS_IFD: 0x8825,
     DATE_ORIGINAL: 0x9003,
     DATE_DIGITIZED: 0x9004,
+    DATE_TIME: 0x0132,
     GPS_LAT_REF: 0x0001,
     GPS_LAT: 0x0002,
     GPS_LON_REF: 0x0003,
@@ -35,10 +36,10 @@ window.DWExif = (function () {
     return s;
   }
 
-  /* Trova il blocco APP1 e restituisce l'offset dell'header TIFF, o -1. */
+  /* Trova il blocco APP1 "Exif" e restituisce l'offset dell'header TIFF.
+     Ritorna -1 se non c'è, -2 se il buffer è finito prima (segmento più lungo di
+     quanto abbiamo letto: capita con profili ICC o anteprime molto grandi). */
   function findTiffStart(view) {
-    if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) return -1;   // non è un JPEG
-
     let off = 2;
     while (off + 4 <= view.byteLength) {
       if (view.getUint8(off) !== 0xFF) return -1;                          // marker disallineato
@@ -55,7 +56,7 @@ window.DWExif = (function () {
       }
       off += 2 + size;
     }
-    return -1;
+    return off + 4 > view.byteLength && off < 0xFFFFFFFF ? -2 : -1;
   }
 
   /* Legge una directory IFD e restituisce una mappa tag → descrittore della voce. */
@@ -91,7 +92,7 @@ window.DWExif = (function () {
 
   /* gradi, minuti, secondi → gradi decimali */
   function dms(view, entry, little) {
-    if (!entry || entry.type !== 5 || entry.num < 2) return null;
+    if (!entry || (entry.type !== 5 && entry.type !== 10) || entry.num < 2) return null;
     const d = rational(view, entry.at, little);
     const m = rational(view, entry.at + 8, little);
     const s = entry.num > 2 ? rational(view, entry.at + 16, little) : 0;
@@ -106,28 +107,51 @@ window.DWExif = (function () {
     return m ? m[1] + '-' + m[2] + '-' + m[3] : '';
   }
 
-  /* Legge i metadati. Ritorna sempre un oggetto; i campi assenti sono null/''. */
+  /* Quanto file leggere in cerca dell'APP1. Sta quasi sempre nei primi KB, ma prima
+     di esso possono trovarsi profili ICC (APP2) o anteprime grandi: con un buffer
+     troppo corto lo scorrimento dei marker finisce fuori e l'EXIF sembra assente. */
+  const BYTE_DA_LEGGERE = 4 * 1024 * 1024;
+
+  /* Legge i metadati. Ritorna sempre un oggetto; i campi assenti sono null o vuoti.
+
+     Il campo `reason` dice com'è andata, e serve a distinguere due situazioni che
+     dall'esterno sembrano identiche:
+       'ok'          coordinate trovate
+       'exif-no-gps' la foto ha l'EXIF (spesso con la data) ma nessun GPS: è il caso
+                     tipico di Android, che rimuove la posizione dalle foto passate
+                     al browser tramite il selettore di sistema
+       'exif-vuoto'  EXIF presente ma senza data né GPS
+       'no-exif'     nessun blocco EXIF
+       'non-jpeg'    non è un JPEG (HEIC, PNG, WebP: nessun EXIF leggibile qui)
+       'troncato'    l'EXIF potrebbe essere oltre i byte letti                    */
   async function read(file) {
-    const vuoto = { lat: null, lng: null, date: '', orientation: 1 };
-    if (!file || !/jpe?g/i.test(file.type)) return vuoto;
+    const out = { lat: null, lng: null, date: '', orientation: 1, reason: 'no-exif' };
+    if (!file) { out.reason = 'no-file'; return out; }
 
     let view;
     try {
-      // l'APP1 sta all'inizio del file: 256 KB sono abbondanti
-      view = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+      const quanti = Math.min(file.size || BYTE_DA_LEGGERE, BYTE_DA_LEGGERE);
+      view = new DataView(await file.slice(0, quanti).arrayBuffer());
     } catch (e) {
-      return vuoto;
+      out.reason = 'illeggibile';
+      return out;
+    }
+
+    /* Il tipo MIME non viene usato come filtro: su Android può arrivare vuoto o
+       generico anche per un JPEG. Conta la firma nei primi due byte. */
+    if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) {
+      out.reason = 'non-jpeg';
+      return out;
     }
 
     const base = findTiffStart(view);
-    if (base < 0 || base + 8 > view.byteLength) return vuoto;
+    if (base === -2) { out.reason = 'troncato'; return out; }
+    if (base < 0 || base + 8 > view.byteLength) { out.reason = 'no-exif'; return out; }
 
     const little = ascii(view, base, 2) === 'II';
-    if (view.getUint16(base + 2, little) !== 0x2A) return vuoto;
+    if (view.getUint16(base + 2, little) !== 0x2A) { out.reason = 'no-exif'; return out; }
 
     const ifd0 = readIfd(view, base, base + view.getUint32(base + 4, little), little);
-
-    const out = Object.assign({}, vuoto);
 
     const orient = ifd0.get(TAG.ORIENTATION);
     if (orient && orient.type === 3) {
@@ -140,6 +164,7 @@ window.DWExif = (function () {
       const exif = readIfd(view, base, base + view.getUint32(exifPtr.at, little), little);
       out.date = dateOf(view, exif.get(TAG.DATE_ORIGINAL) || exif.get(TAG.DATE_DIGITIZED));
     }
+    if (!out.date) out.date = dateOf(view, ifd0.get(TAG.DATE_TIME));
 
     const gpsPtr = ifd0.get(TAG.GPS_IFD);
     if (gpsPtr) {
@@ -149,13 +174,15 @@ window.DWExif = (function () {
       const lng = dms(view, gps.get(TAG.GPS_LON), little);
 
       if (lat !== null && lng !== null) {
-        const latRef = (ascii(view, (gps.get(TAG.GPS_LAT_REF) || {}).at || 0, 1) || 'N').toUpperCase();
-        const lonRef = (ascii(view, (gps.get(TAG.GPS_LON_REF) || {}).at || 0, 1) || 'E').toUpperCase();
+        const refLat = gps.get(TAG.GPS_LAT_REF);
+        const refLon = gps.get(TAG.GPS_LON_REF);
+        const latRef = (refLat ? ascii(view, refLat.at, 1) : 'N').toUpperCase() || 'N';
+        const lonRef = (refLon ? ascii(view, refLon.at, 1) : 'E').toUpperCase() || 'E';
 
         const signedLat = latRef === 'S' ? -lat : lat;
         const signedLng = lonRef === 'W' ? -lng : lng;
 
-        // 0,0 è quasi sempre un GPS che non aveva il fix, non l'isola nel golfo di Guinea
+        // 0,0 è quasi sempre un GPS senza fix, non l'isola nel golfo di Guinea
         if (Math.abs(signedLat) <= 90 && Math.abs(signedLng) <= 180
             && (Math.abs(signedLat) > 0.0001 || Math.abs(signedLng) > 0.0001)) {
           out.lat = signedLat;
@@ -164,6 +191,7 @@ window.DWExif = (function () {
       }
     }
 
+    out.reason = out.lat !== null ? 'ok' : (out.date ? 'exif-no-gps' : 'exif-vuoto');
     return out;
   }
 
