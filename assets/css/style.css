@@ -834,3 +834,13 @@ html[data-theme="dark"] .badge.approved { color: #4ade80; border-color: #4ade80;
   .btn-label { display: none; }                           /* resta il solo "+" */
   .topbar { gap: 7px; padding: 0 10px; }
 }
+
+/* ===== basemap scura ricavata via filtro =====
+   Nessun provider raster senza chiave API offre uno stile scuro, quindi il layer
+   "Scuro" è lo stesso di "Stradale" con i colori invertiti. hue-rotate riporta le
+   tinte al posto giusto dopo l'inversione (l'acqua resta bluastra invece di
+   diventare arancione); il filtro tocca solo il riquadro delle tile, quindi pin,
+   popup e controlli restano con i loro colori. */
+.tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92) saturate(0.75);
+}

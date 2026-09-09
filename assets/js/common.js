@@ -160,31 +160,38 @@ window.DW = (function () {
     ta.remove();
   }
 
-  /* --- basemap: tre stili CARTO su dati OpenStreetMap ---
+  /* --- basemap: solo provider senza chiave API ---
 
-     Le tile NON arrivano dai server volontari di OpenStreetMap (tile.openstreetmap.org):
-     quelli rifiutano le richieste prive di header Referer e, invece di un errore HTTP,
-     restituiscono un'immagine 200 che dice "Access blocked ... Referer is required by
-     tile usage policy". Capita aprendo la pagina da disco (file://) o con browser ed
-     estensioni che sopprimono il referrer, ed è indistinguibile da una tile valida per
-     il codice: arriva un PNG 256x256 e onerror non scatta.
+     CARTO non va più usato: da quando i suoi basemap richiedono una chiave, le tile
+     anonime tornano con la scritta "API KEY REQUIRED" stampata sopra. Non è un
+     errore HTTP e nemmeno una tile diversa dalle altre: il watermark è dentro i
+     pixel, quindi controllare stato e dimensione della risposta non lo rileva.
+     Va guardata l'immagine.
 
-     Il CDN di CARTO serve gli stessi dati OSM senza quel vincolo — verificato su più
-     coordinate anche senza Referer — quindi i tre stili si comportano allo stesso modo
-     in ogni contesto. L'attribuzione a OpenStreetMap resta: i dati sono loro.        */
+     Verificati puliti e senza chiave: tile.openstreetmap.org, OSM France e
+     OpenTopoMap. Nessuno di questi ha uno stile scuro, che quindi si ottiene
+     invertendo quello standard con un filtro CSS (classe .tiles-dark).
+
+     Nota su OpenStreetMap: i suoi server volontari rifiutano le richieste prive di
+     header Referer e rispondono con una tile "Access blocked". Riguarda solo
+     l'apertura della pagina da disco (file://); da un sito pubblicato o da
+     localhost il Referer c'è e le tile arrivano regolari.                        */
 
   function baseLayers() {
-    const attr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-               + ' &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    const osm = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+    const osmFr = osm + ', tile <a href="https://openstreetmap.fr/">OSM France</a>';
 
-    const carto = stile => L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/' + stile + '/{z}/{x}/{y}{r}.png',
-      { maxZoom: 20, subdomains: 'abcd', attribution: attr });
+    const STANDARD = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     return {
-      'Stradale': carto('rastertiles/voyager'),
-      'Chiaro': carto('light_all'),
-      'Scuro': carto('dark_all')
+      'Stradale': L.tileLayer(STANDARD, { maxZoom: 19, attribution: osm }),
+
+      'Chiaro': L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+        { maxZoom: 19, subdomains: 'abc', attribution: osmFr }),
+
+      // stessa sorgente di "Stradale", invertita via CSS
+      'Scuro': L.tileLayer(STANDARD,
+        { maxZoom: 19, attribution: osm, className: 'tiles-dark' })
     };
   }
 
