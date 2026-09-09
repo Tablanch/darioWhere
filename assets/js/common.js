@@ -160,18 +160,31 @@ window.DW = (function () {
     ta.remove();
   }
 
-  /* --- basemap: OSM + varianti CARTO --- */
+  /* --- basemap: tre stili CARTO su dati OpenStreetMap ---
+
+     Le tile NON arrivano dai server volontari di OpenStreetMap (tile.openstreetmap.org):
+     quelli rifiutano le richieste prive di header Referer e, invece di un errore HTTP,
+     restituiscono un'immagine 200 che dice "Access blocked ... Referer is required by
+     tile usage policy". Capita aprendo la pagina da disco (file://) o con browser ed
+     estensioni che sopprimono il referrer, ed è indistinguibile da una tile valida per
+     il codice: arriva un PNG 256x256 e onerror non scatta.
+
+     Il CDN di CARTO serve gli stessi dati OSM senza quel vincolo — verificato su più
+     coordinate anche senza Referer — quindi i tre stili si comportano allo stesso modo
+     in ogni contesto. L'attribuzione a OpenStreetMap resta: i dati sono loro.        */
 
   function baseLayers() {
-    const osmAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-    const cartoAttr = osmAttr + ' &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    const attr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+               + ' &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+    const carto = stile => L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/' + stile + '/{z}/{x}/{y}{r}.png',
+      { maxZoom: 20, subdomains: 'abcd', attribution: attr });
+
     return {
-      'Stradale': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-        { maxZoom: 19, attribution: osmAttr }),
-      'Chiaro': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        { maxZoom: 20, subdomains: 'abcd', attribution: cartoAttr }),
-      'Scuro': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        { maxZoom: 20, subdomains: 'abcd', attribution: cartoAttr })
+      'Stradale': carto('rastertiles/voyager'),
+      'Chiaro': carto('light_all'),
+      'Scuro': carto('dark_all')
     };
   }
 

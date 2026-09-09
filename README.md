@@ -7,7 +7,7 @@ Le proposte compaiono online dopo l'approvazione di un moderatore, avvisato per 
 
 ## Tecnologie
 
-- **Leaflet** con tile **OpenStreetMap** e **CARTO** — nessuna API key, nessuna carta di credito
+- **Leaflet** con tile **CARTO** su dati **OpenStreetMap** — nessuna API key, nessuna carta di credito
 - **Leaflet.markercluster** per raggruppare i pin vicini
 - **Nominatim** per la ricerca degli indirizzi e il geocoding inverso (città, paese, bandiera)
 - Lettore **EXIF** scritto a mano, senza librerie, per GPS e data dello scatto
