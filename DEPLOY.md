@@ -112,6 +112,9 @@ Se l'invio della mail fallisce lo sticker resta comunque salvato: l'errore finis
   immagini che consegna al browser, quindi l'EXIF arriva con la data ma senza coordinate.
   Non è aggirabile da una pagina web: il form lo dice e propone la posizione del
   dispositivo o la scelta a mano. Su iOS e da desktop il GPS si legge normalmente.
+- **Coordinate**: arrotondate a 5 decimali in salvataggio, circa 1,1 m. Oltre è
+  precisione finta rispetto ai 3-10 m di errore del GPS di un telefono, e serve ad
+  avere un formato unico nel database.
 - **Rate limiting**: massimo 5 invii all'ora per IP, che viene salvato solo come hash salato.
 - **Login**: 6 tentativi poi un minuto di attesa, cookie `HttpOnly; Secure; SameSite=Strict`
   valido 12 ore.

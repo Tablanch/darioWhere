@@ -144,8 +144,8 @@
       +         campo('date', 'Data', s.date, 'type="date"')
       +       '</div>'
       +       '<div class="field-row">'
-      +         campo('lat', 'Latitudine', s.lat, 'type="number" step="0.00001" min="-90" max="90" required')
-      +         campo('lng', 'Longitudine', s.lng, 'type="number" step="0.00001" min="-180" max="180" required')
+      +         campo('lat', 'Latitudine', s.lat, 'type="number" step="any" min="-90" max="90" required')
+      +         campo('lng', 'Longitudine', s.lng, 'type="number" step="any" min="-180" max="180" required')
       +       '</div>'
       +       '<div class="field-row three">'
       +         campo('place', 'Città', s.place, 'maxlength="80"')
