@@ -91,6 +91,33 @@ export async function isAdmin(req) {
   return Number(payload) > Math.floor(Date.now() / 1000);
 }
 
+/* --- accesso temporaneo a una foto non ancora approvata ---
+
+   Serve per la mail di notifica: il moderatore la apre nel client di posta, dove
+   non ha il cookie di sessione, e senza questo non vedrebbe l'anteprima. Il token
+   vale solo per quella chiave e scade, quindi non e' un lasciapassare generale. */
+
+const PHOTO_TOKEN_TTL = 14 * 24 * 60 * 60;      // 14 giorni
+
+export async function photoToken(key) {
+  const exp = Math.floor(Date.now() / 1000) + PHOTO_TOKEN_TTL;
+  return exp + '.' + await hmac('photo:' + key + ':' + exp);
+}
+
+export async function photoTokenValid(key, token) {
+  if (typeof token !== 'string') return false;
+  const dot = token.indexOf('.');
+  if (dot < 1) return false;
+
+  const exp = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+
+  if (!/^\d{1,12}$/.test(exp)) return false;
+  if (Number(exp) <= Math.floor(Date.now() / 1000)) return false;
+
+  return sameDigest(sig, await hmac('photo:' + key + ':' + exp));
+}
+
 export async function requireAdmin(req) {
   if (!await isAdmin(req)) throw new HttpError(401, 'Sessione scaduta o assente');
 }

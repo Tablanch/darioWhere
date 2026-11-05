@@ -248,6 +248,42 @@ window.DW = (function () {
     });
   }
 
+  /* --- conteggio visite ---
+     Una sola chiamata per caricamento di pagina, senza cookie e senza bloccare il
+     rendering. keepalive serve a non perdere il conteggio se si esce subito. Un
+     errore qui non deve mai disturbare chi guarda la mappa, quindi si ignora. */
+  function trackVisit() {
+    try {
+      const q = new URLSearchParams(location.search);
+      fetch('/api/hit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: location.pathname,
+          ref: document.referrer || '',
+          qr: q.has('qr') || q.get('da') === 'qr'
+        }),
+        keepalive: true
+      }).catch(() => {});
+    } catch (e) { /* niente statistiche, pazienza */ }
+  }
+
+  if (document.readyState === 'complete') trackVisit();
+  else window.addEventListener('load', trackVisit, { once: true });
+
+  /* --- segnaposto per le immagini che non caricano ---
+     Un solo gestore in fase di cattura al posto degli attributi onerror inline:
+     quegli attributi sono codice inline, e avrebbero costretto la Content-Security-
+     Policy ad ammettere 'unsafe-inline' sugli script, cioe' a rinunciare alla sua
+     protezione principale. */
+  document.addEventListener('error', e => {
+    const img = e.target;
+    if (img && img.tagName === 'IMG' && img.hasAttribute('data-fallback')) {
+      img.removeAttribute('data-fallback');   // niente ciclo se manca anche il segnaposto
+      img.src = PLACEHOLDER;
+    }
+  }, true);
+
   return {
     initTheme, applyTheme, currentTheme,
     esc, photoOf, thumbOf, fmtCoords, fmtDate, slugify,

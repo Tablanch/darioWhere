@@ -17,17 +17,38 @@ export default handler(async req => {
 
   const sql = db();
 
-  if (action === 'approve' || action === 'reject') {
-    const status = action === 'approve' ? 'approved' : 'rejected';
-    const rows = await sql`update stickers set status = ${status} where id = ${id} returning id`;
+  if (action === 'approve') {
+    const rows = await sql`
+      update stickers set status = 'approved' where id = ${id} returning id`;
     if (!rows.length) throw new HttpError(404, 'Sticker non trovato');
-    return json({ ok: true, id, status });
+    return json({ ok: true, id, status: 'approved' });
+  }
+
+  /* Rifiuto ed eliminazione tolgono entrambi i file dai Blobs: tenere materiale che
+     il moderatore ha scartato non serve a niente e, prima del controllo di accesso
+     in photo.mjs, restava pure raggiungibile da chi ne conosceva la chiave.
+
+     Le chiavi vanno lette PRIMA della modifica: in Postgres RETURNING su un UPDATE
+     restituisce i valori nuovi, quindi dopo l'azzeramento tornerebbero due null e
+     i file resterebbero orfani nello store. */
+  const [corrente] = await sql`
+    select status, photo_key, thumb_key from stickers where id = ${id}`;
+  if (!corrente) throw new HttpError(404, 'Sticker non trovato');
+
+  const chiavi = [corrente.photo_key, corrente.thumb_key];
+
+  if (action === 'reject') {
+    // la riga resta: tiene memoria della decisione e conta negli invii per IP
+    await sql`
+      update stickers set status = 'rejected', photo_key = null, thumb_key = null
+       where id = ${id}`;
+    await deletePhotos(chiavi);
+    return json({ ok: true, id, status: 'rejected' });
   }
 
   if (action === 'delete') {
-    const rows = await sql`delete from stickers where id = ${id} returning photo_key, thumb_key`;
-    if (!rows.length) throw new HttpError(404, 'Sticker non trovato');
-    await deletePhotos([rows[0].photo_key, rows[0].thumb_key]);
+    await sql`delete from stickers where id = ${id}`;
+    await deletePhotos(chiavi);
     return json({ ok: true, id, status: 'deleted' });
   }
 

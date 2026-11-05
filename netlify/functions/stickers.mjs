@@ -12,7 +12,7 @@ export default handler(async req => {
   const sql = db();
   const rows = await sql`
     select id, title, description, author, lat, lng,
-           photo_key, thumb_key, photo_url, taken_on, place, country, tags
+           photo_key, thumb_key, photo_url, taken_on, place, country, country_code, tags
       from stickers
      where status = 'approved'
      order by created_at desc

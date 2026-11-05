@@ -24,6 +24,7 @@
     $('panel').hidden = false;
     $('btn-logout').hidden = false;
     load();
+    loadStats();
   }
 
   $('login-form').addEventListener('submit', async e => {
@@ -96,7 +97,7 @@
     return ''
       + '<article class="admin-card" data-card="' + id + '">'
       +   '<img src="' + DW.esc(DW.photoOf(s)) + '" alt="" loading="lazy"'
-      +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
+      +        ' data-fallback>'
       +   '<div class="admin-card-body">'
       +     '<div class="admin-card-head">'
       +       '<h3>' + DW.esc(s.title) + '</h3>'
@@ -130,7 +131,7 @@
     return ''
       + '<article class="admin-card editing" data-card="' + id + '">'
       +   '<img src="' + DW.esc(DW.photoOf(s)) + '" alt="" loading="lazy"'
-      +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
+      +        ' data-fallback>'
       +   '<div class="admin-card-body">'
       +     '<form class="edit-form" data-edit="' + id + '">'
       /* nel form si modifica il nome pulito: la bandiera la riaccoda il backend
@@ -217,6 +218,9 @@
 
     /* --- approva / rifiuta / elimina --- */
 
+    /* Rifiuto ed eliminazione tolgono entrambi la foto dallo store: va detto prima,
+       perche il moderatore potrebbe pensare che rifiutare sia reversibile. */
+    if (act === 'reject' && !confirm('Rifiutare "' + id + '"? La foto viene cancellata e non sara piu recuperabile.')) return;
     if (act === 'delete' && !confirm('Eliminare definitivamente "' + id + '" e la sua foto?')) return;
 
     btn.disabled = true;
@@ -283,6 +287,49 @@
       DW.toast(ex.message);
     }
   });
+
+  /* ---------- visite ---------- */
+
+  async function loadStats() {
+    const corpo = $('stats-corpo');
+    let d;
+    try {
+      d = await DW.api('/api/admin/stats?giorni=30');
+    } catch (ex) {
+      corpo.textContent = DW.apiErrorHint(ex);
+      return;
+    }
+
+    $('stats-periodo').textContent = '— ultimi ' + d.giorni + ' giorni';
+
+    const riga = (etichetta, valore) =>
+      '<tr><td>' + DW.esc(etichetta) + '</td><td class="num">' + valore + '</td></tr>';
+
+    const tabella = (titolo, righe) =>
+      '<div class="stats-box"><h3>' + titolo + '</h3><table class="stats-table">'
+      + (righe || '<tr><td colspan="2">nessun dato</td></tr>') + '</table></div>';
+
+    const giorni = d.perGiorno.slice(0, 14).map(g =>
+      riga(new Date(g.day + 'T12:00:00').toLocaleDateString('it-IT',
+             { day: 'numeric', month: 'short' }), g.hits + ' / ' + g.uniques)).join('');
+
+    corpo.innerHTML = ''
+      + '<div class="stats-numeri">'
+      +   '<div><strong>' + d.totali.hits + '</strong><span>visite</span></div>'
+      +   '<div><strong>' + d.totali.uniques + '</strong><span>visitatori</span></div>'
+      +   '<div><strong>' + d.probabiliQr + '</strong><span>probabili scansioni QR</span></div>'
+      + '</div>'
+      + '<div class="stats-griglia">'
+      +   tabella('Per giorno <span class="hint">visite / visitatori</span>', giorni)
+      +   tabella('Provenienza', d.perProvenienza.map(x => riga(x.source, x.hits)).join(''))
+      +   tabella('Pagina', d.perPagina.map(x => riga(x.path, x.hits)).join(''))
+      +   tabella('Dispositivo', d.perDispositivo.map(x => riga(x.device, x.hits)).join(''))
+      + '</div>'
+      + '<p class="hint">Gli adesivi portano l indirizzo senza parametri, quindi una'
+      + ' scansione del QR si presenta come visita diretta da telefono: il numero qui'
+      + ' sopra è una stima. Per contarle con certezza, i prossimi QR possono puntare'
+      + ' a <code>' + location.origin + '/?qr=1</code>.</p>';
+  }
 
   /* ---------- avvio ---------- */
 

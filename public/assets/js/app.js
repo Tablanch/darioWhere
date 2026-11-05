@@ -69,7 +69,7 @@
     return ''
       + '<img class="card-photo" src="' + DW.esc(DW.photoOf(st)) + '" alt="' + DW.esc(st.title || 'Sticker') + '"'
       +      ' data-lightbox="' + DW.esc(st.id) + '"'
-      +      ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
+      +      ' data-fallback>'
       + '<div class="card-body">'
       +   '<h3 class="card-title">' + DW.esc(st.title || 'Sticker senza nome') + '</h3>'
       +   (place ? '<div class="card-place">' + DW.esc(place) + '</div>' : '')
@@ -109,7 +109,7 @@
     listEl.innerHTML = shown.map(st => ''
       + '<li data-id="' + DW.esc(st.id) + '" tabindex="0">'
       +   '<img class="thumb" src="' + DW.esc(DW.thumbOf(st)) + '" alt="" loading="lazy"'
-      +        ' onerror="this.src=\'' + DW.PLACEHOLDER + '\'">'
+      +        ' data-fallback>'
       +   '<div class="li-body">'
       +     '<div class="li-title">' + DW.esc(st.title || 'Sticker senza nome') + '</div>'
       +     '<div class="li-meta">' + DW.esc([st.place, st.author && ('di ' + st.author)].filter(Boolean).join(' · ')) + '</div>'

@@ -88,6 +88,8 @@ ADMIN_SECRET=…
 | `POST /api/admin/review` | admin | `approve` / `reject` / `delete` |
 | `POST /api/admin/update` | admin | modifica i campi di uno sticker |
 | `POST /api/admin/seed` | admin | carica gli sticker di esempio |
+| `POST /api/hit` | pubblico | registra una visita (nessun cookie) |
+| `GET /api/admin/stats` | admin | numeri delle visite |
 
 ## Notifica email
 
@@ -102,6 +104,24 @@ serve un dominio verificato e `MAIL_FROM` su quel dominio.
 Se l'invio della mail fallisce lo sticker resta comunque salvato: l'errore finisce nei
 *Function logs* e la risposta contiene `notified: false`.
 
+## Visite
+
+Contate dal sito stesso, senza servizi esterni e senza cookie: ogni pagina chiama
+`POST /api/hit` e il backend aggiorna dei totali per giorno, pagina, provenienza e
+tipo di dispositivo. I numeri si vedono in cima a `/admin.html`.
+
+Dell indirizzo IP resta solo un hash salato nella tabella `visit_seen`, che serve a
+non contare due volte lo stesso visitatore e viene ripulita dopo 30 giorni. Essendo
+dati aggregati e non identificativi, non serve il banner dei cookie.
+
+Le visite dello stesso indirizzo sulla stessa pagina smettono di contare dopo 20 al
+giorno: i *visitatori* sono protetti dalla chiave primaria, le *visite* da quel tetto.
+
+Gli adesivi stampati portano l indirizzo nudo, quindi una scansione del QR arriva
+senza referrer e si presenta come visita diretta da telefono: il numero "probabili
+scansioni QR" è quella stima. Per contarle con certezza, i prossimi QR possono
+puntare a `https://dariowhere.netlify.app/?qr=1`.
+
 ## Limiti e difese
 
 - **Payload**: le Netlify Functions accettano ~6 MB. Il browser ridimensiona la foto a
@@ -115,12 +135,25 @@ Se l'invio della mail fallisce lo sticker resta comunque salvato: l'errore finis
 - **Coordinate**: arrotondate a 5 decimali in salvataggio, circa 1,1 m. Oltre è
   precisione finta rispetto ai 3-10 m di errore del GPS di un telefono, e serve ad
   avere un formato unico nel database.
-- **Rate limiting**: massimo 5 invii all'ora per IP, che viene salvato solo come hash salato.
-- **Login**: 6 tentativi poi un minuto di attesa, cookie `HttpOnly; Secure; SameSite=Strict`
-  valido 12 ore.
-- **Moderazione**: nessuno sticker compare sulla mappa senza approvazione. Nota che
-  `/api/photo/:key` serve qualunque chiave esistente, anche di una proposta non ancora
-  approvata: le chiavi contengono un suffisso casuale e non sono elencabili, quindi non
-  sono indovinabili, ma non sono un segreto crittografico.
-- **Cosa manca se il sito diventa pubblico davvero**: un captcha (Cloudflare Turnstile è
-  gratuito) sul form di invio, e un tetto giornaliero globale agli invii.
+- **Pubblicazione**: va online solo `public/`. Prima `publish` era la cartella del
+  repository, quindi erano scaricabili `netlify/**`, `package.json` e i documenti.
+- **Foto non approvate**: `/api/photo/:key` controlla lo stato dello sticker. Senza
+  sessione admin o token firmato risponde 404, quindi il form non può essere usato
+  come hosting di immagini. Rifiuto ed eliminazione cancellano i file dallo store.
+- **Rate limiting**: 5 invii all'ora per IP (hash salato), 30 all'ora complessivi e
+  massimo 150 proposte in coda; oltre 20 in coda la mail di notifica non parte più.
+- **Accessi admin**: contatore sul database, non in memoria: 8 tentativi falliti per
+  IP e 40 complessivi ogni 15 minuti. La versione in memoria era aggirabile mandando
+  le richieste in parallelo, perché ogni istanza aveva il suo contatore.
+- **Intestazioni**: CSP senza `unsafe-inline` sugli script, `Permissions-Policy`,
+  `nosniff`, `X-Frame-Options: DENY`, HSTS (messa da Netlify).
+- **Sessione admin**: cookie `HttpOnly; Secure; SameSite=Strict` firmato in HMAC-SHA256,
+  valido 12 ore. SameSite=Strict impedisce che un altro sito lo faccia inviare, quindi
+  non serve un token CSRF separato.
+- **Moderazione**: nessuno sticker compare sulla mappa senza approvazione, e la sua foto
+  non è raggiungibile finché resta in coda.
+- **Cosa manca**: un captcha sul form di invio (Cloudflare Turnstile è gratuito). I tetti
+  globali limitano il danno, ma non impediscono a una persona decisa di riempire la coda.
+- **Da fare a mano**: `ADMIN_PASSWORD` lunga e casuale. È l'unica cosa che separa un
+  estraneo dalla moderazione, e i freni rallentano un attacco ma non sostituiscono una
+  password robusta.

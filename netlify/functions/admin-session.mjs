@@ -3,43 +3,44 @@
      POST /api/admin/logout               → cancella il cookie
      GET  /api/admin/session              → { admin: true|false } */
 
-import { handler, json, readJson, HttpError } from '../lib/http.mjs';
-import { checkPassword, sessionCookie, clearCookie, isAdmin } from '../lib/auth.mjs';
+import { handler, json, readJson, requireMethod, clientIp, HttpError } from '../lib/http.mjs';
+import { checkPassword, sessionCookie, clearCookie, isAdmin, hashIp } from '../lib/auth.mjs';
+import { checkLoginAllowed, recordLoginFailure, clearLoginFailures } from '../lib/rate.mjs';
 
 export const config = {
   path: ['/api/admin/login', '/api/admin/logout', '/api/admin/session']
 };
 
-/* piccolo freno ai tentativi a raffica sulla stessa istanza */
-const attempts = new Map();
-
-function throttle(ip) {
-  const now = Date.now();
-  const rec = attempts.get(ip) || { n: 0, until: 0 };
-  if (rec.until > now) throw new HttpError(429, 'Troppi tentativi: aspetta un minuto');
-  rec.n++;
-  if (rec.n >= 6) { rec.until = now + 60_000; rec.n = 0; }
-  attempts.set(ip, rec);
-}
-
-export default handler(async req => {
+export default handler(async (req, context) => {
   const action = new URL(req.url).pathname.split('/').pop();
 
   if (action === 'session') {
-    return json({ admin: await isAdmin(req) });
+    return json({ admin: await isAdmin(req) }, 200, { 'Cache-Control': 'no-store' });
   }
 
   if (action === 'logout') {
-    return json({ ok: true }, 200, { 'Set-Cookie': clearCookie() });
+    return json({ ok: true }, 200, { 'Set-Cookie': clearCookie(), 'Cache-Control': 'no-store' });
   }
 
   if (action !== 'login') throw new HttpError(404, 'Azione sconosciuta');
-  if (req.method !== 'POST') throw new HttpError(405, 'Metodo non consentito');
+  requireMethod(req, 'POST');
 
-  throttle(req.headers.get('x-nf-client-connection-ip') || 'unknown');
+  /* L'IP si tiene solo come hash salato: serve a contare i tentativi, non a sapere
+     chi è. Il controllo viene prima della lettura della password, così un attacco
+     non costa nemmeno il confronto. */
+  const ipHash = await hashIp(clientIp(req, context));
+  await checkLoginAllowed(ipHash);
 
   const { password } = await readJson(req, 4096);
-  if (!await checkPassword(password)) throw new HttpError(401, 'Password errata');
 
-  return json({ ok: true }, 200, { 'Set-Cookie': await sessionCookie() });
+  if (!await checkPassword(password)) {
+    await recordLoginFailure(ipHash);
+    throw new HttpError(401, 'Password errata');
+  }
+
+  await clearLoginFailures(ipHash);
+  return json({ ok: true }, 200, {
+    'Set-Cookie': await sessionCookie(),
+    'Cache-Control': 'no-store'
+  });
 });
