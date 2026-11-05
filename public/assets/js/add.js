@@ -346,6 +346,53 @@
     el.addEventListener('change', render);
   });
 
+  /* ---------- captcha (Cloudflare Turnstile) ----------
+
+     Opzionale: la chiave pubblica arriva da /api/config, e se non e configurata il
+     widget non compare e il form resta come prima. Lo script di Cloudflare viene
+     caricato solo in quel caso, cosi chi visita il sito senza captcha attivo non
+     contatta nessun terzo. */
+
+  let captchaId = null;
+
+  function caricaScript(src) {
+    return new Promise((ok, ko) => {
+      const el = document.createElement('script');
+      el.src = src;
+      el.async = true;
+      el.onload = ok;
+      el.onerror = () => ko(new Error('script non caricato: ' + src));
+      document.head.appendChild(el);
+    });
+  }
+
+  async function setupCaptcha() {
+    let cfg;
+    try {
+      cfg = await DW.api('/api/config');
+    } catch (ex) {
+      return;                       // senza configurazione si procede senza captcha
+    }
+    if (!cfg || !cfg.turnstileSiteKey) return;
+
+    try {
+      await caricaScript('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit');
+      captchaId = window.turnstile.render('#captcha', {
+        sitekey: cfg.turnstileSiteKey,
+        language: 'it'
+      });
+      $('captcha-wrap').hidden = false;
+    } catch (ex) {
+      console.warn('[Dariowhere] captcha non disponibile:', ex.message);
+    }
+  }
+
+  /* Ogni token vale un invio solo: dopo il tentativo va rigenerato, altrimenti il
+     secondo invio verrebbe rifiutato come duplicato. */
+  function resetCaptcha() {
+    if (captchaId !== null && window.turnstile) window.turnstile.reset(captchaId);
+  }
+
   /* ---------- invio ---------- */
 
   const form = $('form');
@@ -364,13 +411,19 @@
     if (st.title.length < 3) return fail('Il titolo deve avere almeno 3 caratteri.');
     if (st.lat === null) return fail('Scegli la posizione sulla mappa.');
 
+    const captchaToken = captchaId !== null && window.turnstile
+      ? window.turnstile.getResponse(captchaId) : '';
+    if (captchaId !== null && !captchaToken) return fail('Completa la verifica antispam.');
+
     btnSend.disabled = true;
     btnSend.textContent = 'Invio…';
 
     try {
       await DW.api('/api/submit', {
         method: 'POST',
-        body: JSON.stringify(Object.assign({}, st, { photo: photo.full, thumb: photo.thumb }))
+        body: JSON.stringify(Object.assign({}, st, {
+          photo: photo.full, thumb: photo.thumb, turnstile: captchaToken
+        }))
       });
 
       localStorage.setItem('dariowhere:author', st.author);
@@ -383,6 +436,7 @@
     } catch (ex) {
       fail(DW.apiErrorHint(ex));
     } finally {
+      resetCaptcha();
       btnSend.disabled = false;
       btnSend.textContent = 'Invia per l\'approvazione';
     }
@@ -414,6 +468,7 @@
   /* ---------- avvio ---------- */
 
   F.author.value = localStorage.getItem('dariowhere:author') || '';
+  setupCaptcha();
   setCoords(44.4944, 11.3433, false);
   render();
 })();

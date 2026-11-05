@@ -6,6 +6,7 @@ import { hashIp, photoToken } from '../lib/auth.mjs';
 import { decodeDataUrl, savePhoto, deletePhotos } from '../lib/photos.mjs';
 import { stickerFields, slug } from '../lib/validate.mjs';
 import { notifyNewSticker } from '../lib/notify.mjs';
+import { verificaTurnstile } from '../lib/turnstile.mjs';
 
 export const config = { path: '/api/submit' };
 
@@ -27,6 +28,11 @@ export default handler(async (req, context) => {
 
   const body = await readJson(req);
   const sql = db();
+  const ip = clientIp(req, context);
+
+  /* Il captcha e il filtro piu selettivo: si verifica per primo, prima di
+     decodificare le immagini e prima di interrogare il database. */
+  await verificaTurnstile(body.turnstile, ip);
 
   const f = stickerFields(body);
   const photo = decodeDataUrl(body.photo, MAX_PHOTO, 'foto');
@@ -34,7 +40,7 @@ export default handler(async (req, context) => {
 
   /* --- rate limiting per IP --- */
 
-  const submitter = await hashIp(clientIp(req, context));
+  const submitter = await hashIp(ip);
   const [{ recenti }] = await sql`
     select count(*)::int as recenti
       from stickers

@@ -38,6 +38,8 @@ Le tabelle vengono create alla prima chiamata dell'API: nessuna migrazione a man
 | `RESEND_API_KEY` | no | chiave [Resend](https://resend.com) per la mail di notifica; se manca, la notifica è disattivata e l'invio funziona comunque |
 | `NOTIFY_EMAIL` | no | destinatario della notifica (default `a.bianchi@ads.it`) |
 | `MAIL_FROM` | no | mittente verificato su Resend (default `onboarding@resend.dev`, il mittente di prova) |
+| `TURNSTILE_SITE_KEY` | no | chiave pubblica del captcha, servita alla pagina da `/api/config` |
+| `TURNSTILE_SECRET_KEY` | no | chiave privata del captcha; senza, la verifica è disattivata |
 
 Per generare il secret:
 
@@ -88,6 +90,7 @@ ADMIN_SECRET=…
 | `POST /api/admin/review` | admin | `approve` / `reject` / `delete` |
 | `POST /api/admin/update` | admin | modifica i campi di uno sticker |
 | `POST /api/admin/seed` | admin | carica gli sticker di esempio |
+| `GET /api/config` | pubblico | chiave pubblica del captcha |
 | `POST /api/hit` | pubblico | registra una visita (nessun cookie) |
 | `GET /api/admin/stats` | admin | numeri delle visite |
 
@@ -103,6 +106,27 @@ serve un dominio verificato e `MAIL_FROM` su quel dominio.
 
 Se l'invio della mail fallisce lo sticker resta comunque salvato: l'errore finisce nei
 *Function logs* e la risposta contiene `notified: false`.
+
+## Captcha
+
+Il form pubblico può essere protetto da [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/),
+gratuito e senza cookie di profilazione. È opzionale: finché le due chiavi non ci
+sono il widget non compare, lo script di Cloudflare non viene nemmeno caricato e
+gli invii funzionano come prima.
+
+Per attivarlo:
+
+1. Su Cloudflare, *Turnstile → Add site*, dominio `dariowhere.netlify.app`.
+2. Copia le due chiavi in `TURNSTILE_SITE_KEY` e `TURNSTILE_SECRET_KEY` su Netlify.
+3. Ridistribuisci: le funzioni leggono le variabili solo al deploy successivo.
+
+La verifica avviene per prima in `/api/submit`, prima di decodificare le immagini e
+di interrogare il database, così una richiesta automatica costa il minimo possibile.
+Ogni token vale un invio solo.
+
+Se Cloudflare non risponde, l invio viene accettato lo stesso: bloccare tutti per un
+guasto di terzi farebbe più danno dello spam evitato, e la proposta passa comunque
+dalla moderazione prima di comparire sulla mappa.
 
 ## Visite
 
@@ -152,8 +176,7 @@ puntare a `https://dariowhere.netlify.app/?qr=1`.
   non serve un token CSRF separato.
 - **Moderazione**: nessuno sticker compare sulla mappa senza approvazione, e la sua foto
   non è raggiungibile finché resta in coda.
-- **Cosa manca**: un captcha sul form di invio (Cloudflare Turnstile è gratuito). I tetti
-  globali limitano il danno, ma non impediscono a una persona decisa di riempire la coda.
+- **Captcha**: Turnstile sul form pubblico, se le chiavi sono configurate (vedi sopra).
 - **Da fare a mano**: `ADMIN_PASSWORD` lunga e casuale. È l'unica cosa che separa un
   estraneo dalla moderazione, e i freni rallentano un attacco ma non sostituiscono una
   password robusta.
